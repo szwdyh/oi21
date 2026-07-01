@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>AOYIN LINK</title>
+<style>
+  /* --- 核心变量 --- */
+  :root {
+    --primary: #74a07a; 
+    --primary-dark: #4a6b4e;
+    --bg-dark: #080b08;
+    --glass-bg: rgba(15, 22, 18, 0.75);
+    --glass-border: rgba(116, 160, 122, 0.4);
+    --text-main: #e0e0e0;
+    --heart-color: #ff4b4b;
+    --safe-top: env(safe-area-inset-top, 20px);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: #000;
+    font-family: "PingFang SC", "Noto Sans SC", sans-serif;
+    color: var(--text-main);
+    display: flex; justify-content: center; align-items: center;
+    height: 100vh; overflow: hidden;
+  }
+
+  /* --- 主容器 & 动态视频背景 --- */
+  .app-container {
+    width: 100%; height: 100%; max-width: 480px;
+    position: relative;
+    background-color: var(--bg-dark);
+    overflow: hidden;
+    box-shadow: 0 0 40px rgba(0,0,0,0.9);
+  }
+
+  #bg-video {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    object-fit: cover; z-index: 0; transition: opacity 0.5s;
+  }
+
+  .app-container::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 150px; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); z-index: 1; pointer-events: none; }
+  .app-container::after { content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 250px; background: linear-gradient(to top, rgba(0,0,0,0.95), transparent); z-index: 1; pointer-events: none; }
+
+  /* --- 顶部导航 & 好感度UI --- */
+  .top-bar { position: absolute; top: var(--safe-top); left: 0; width: 100%; padding: 10px 20px; z-index: 10; display: flex; justify-content: space-between; align-items: flex-start; }
+  .sys-title { display: flex; flex-direction: column; gap: 4px; }
+  .sys-en { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 18px; color: #fff; letter-spacing: 2px; text-shadow: 0 0 12px var(--primary-dark); }
+  .sys-cn { font-size: 10px; color: var(--primary); letter-spacing: 4px; }
+  
+  .top-right-group { display: flex; gap: 12px; align-items: center; }
+  .affection-hud { background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(255, 75, 75, 0.5); border-radius: 20px; padding: 6px 14px; display: flex; align-items: center; gap: 6px; backdrop-filter: blur(10px); box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+  .heart-icon { color: var(--heart-color); font-size: 16px; animation: heartbeat 2s infinite; }
+  .affection-val { color: #fff; font-size: 14px; font-weight: bold; font-family: 'Orbitron'; letter-spacing: 1px; }
+  @keyframes heartbeat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
+
+  .music-btn { width: 36px; height: 36px; border-radius: 50%; background: rgba(0,0,0,0.6); border: 1px solid var(--glass-border); backdrop-filter: blur(10px); display: flex; justify-content: center; align-items: center; color: var(--primary); font-size: 16px; cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+  .music-btn.playing { background: var(--primary); color: #fff; box-shadow: 0 0 15px var(--primary); animation: spin 4s linear infinite; }
+  @keyframes spin { 100% { transform: rotate(360deg); } }
+
+  /* --- 底部基础信息 --- */
+  .bottom-info { position: absolute; bottom: 30px; left: 20px; z-index: 10; pointer-events: none; }
+  .quote { font-size: 13px; color: #ccc; font-style: italic; margin-bottom: 10px; letter-spacing: 1px; text-shadow: 0 2px 6px rgba(0,0,0,0.9); }
+  .name-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+  .name-cn { font-size: 36px; font-weight: 900; color: #fff; letter-spacing: 2px; text-shadow: 0 2px 12px rgba(0,0,0,0.8); }
+  .name-en { font-size: 14px; color: var(--primary); font-family: 'Orbitron'; font-weight: bold; }
+  .tags { display: flex; gap: 8px; }
+  .tag { font-size: 10px; padding: 4px 10px; background: rgba(116, 160, 122, 0.25); border: 1px solid rgba(116, 160, 122, 0.5); border-radius: 8px; color: #fff; backdrop-filter: blur(5px); }
+
+  /* --- 乙女游戏级主菜单 (右下角) --- */
+  .main-menu-container { position: absolute; right: 20px; bottom: 30px; display: flex; flex-direction: column; gap: 20px; z-index: 20; }
+  
+  .main-btn { width: 54px; height: 54px; border-radius: 50%; background: rgba(15, 22, 18, 0.85); border: 2px solid var(--primary); backdrop-filter: blur(15px); display: flex; justify-content: center; align-items: center; font-size: 24px; color: #fff; cursor: pointer; box-shadow: 0 4px 20px rgba(0,0,0,0.6), inset 0 0 10px rgba(116, 160, 122, 0.3); transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; }
+  .main-btn:hover { transform: scale(1.1); background: var(--primary); }
+  .main-btn:active { transform: scale(0.95); }
+  .main-btn-label { position: absolute; right: 65px; background: rgba(0,0,0,0.7); padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; color: #fff; border: 1px solid rgba(255,255,255,0.1); pointer-events: none; opacity: 0; transform: translateX(10px); transition: all 0.3s; white-space: nowrap; }
+  .main-btn:hover .main-btn-label { opacity: 1; transform: translateX(0); }
+
+  /* 子菜单 */
+  .sub-menu { position: absolute; right: 70px; bottom: 0; display: flex; flex-direction: row-reverse; gap: 15px; opacity: 0; pointer-events: none; transform: translateX(20px); transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+  .sub-menu.active { opacity: 1; pointer-events: auto; transform: translateX(0); }
+  .sub-btn { width: 46px; height: 46px; border-radius: 50%; background: rgba(30, 40, 35, 0.9); border: 1px solid var(--primary); display: flex; flex-direction: column; justify-content: center; align-items: center; color: #fff; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.5); transition: transform 0.2s; }
+  .sub-btn:active { transform: scale(0.9); background: var(--primary); }
+  .sub-icon { font-size: 18px; }
+  .sub-text { font-size: 9px; margin-top: 2px; font-weight: bold; }
+
+  /* --- 沉浸式触摸层与光效 --- */
+  #interact-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; display: none; cursor: crosshair; }
+  .light-ripple { position: absolute; width: 60px; height: 60px; background: radial-gradient(circle, rgba(255,255,255,0.9) 0%, rgba(116,160,122,0.6) 40%, transparent 70%); border-radius: 50%; transform: translate(-50%, -50%) scale(0.5); pointer-events: none; z-index: 50; animation: rippleAnim 0.7s ease-out forwards; }
+  @keyframes rippleAnim { 0% { transform: translate(-50%, -50%) scale(0.3); opacity: 1; } 100% { transform: translate(-50%, -50%) scale(3.5); opacity: 0; } }
+  
+  .paw-effect { position: absolute; font-size: 40px; transform: translate(-50%, -50%) scale(0.5); pointer-events: none; z-index: 50; animation: pawAnim 1s ease-out forwards; text-shadow: 0 0 10px var(--primary); }
+  @keyframes pawAnim { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); } 20% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); } }
+
+  .floating-text { position: absolute; transform: translate(-50%, -50%); color: #fff; font-weight: bold; font-size: 15px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); pointer-events: none; z-index: 51; white-space: nowrap; animation: floatUp 1.5s ease-out forwards; background: rgba(0,0,0,0.5); padding: 6px 14px; border-radius: 20px; border: 1px solid rgba(116,160,122,0.5); backdrop-filter: blur(4px); }
+  @keyframes floatUp { 0% { opacity: 0; transform: translate(-50%, -30%); } 20% { opacity: 1; transform: translate(-50%, -50%); } 100% { opacity: 0; transform: translate(-50%, -90px); } }
+
+  .action-toast { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); border: 1px solid var(--primary); padding: 12px 24px; border-radius: 30px; color: #fff; font-size: 15px; font-weight: bold; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.6); pointer-events: none; z-index: 150; opacity: 0; animation: toastAnim 2s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; display: flex; flex-direction: column; gap: 4px; backdrop-filter: blur(10px); }
+  .toast-heart { color: var(--heart-color); font-size: 12px; }
+  @keyframes toastAnim { 0% { opacity: 0; transform: translate(-50%, -30%) scale(0.8); } 15% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); } 30% { transform: translate(-50%, -50%) scale(1); } 80% { opacity: 1; transform: translate(-50%, -50%); } 100% { opacity: 0; transform: translate(-50%, -70%); } }
+
+  /* --- 毛玻璃弹窗系统 --- */
+  .glass-modal { position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 14, 11, 0.95); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); z-index: 100; display: flex; flex-direction: column; transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .glass-modal.active { transform: translateY(0); }
+  .modal-header { padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; background: rgba(0,0,0,0.3); padding-top: calc(16px + var(--safe-top)); }
+  .modal-title { color: #fff; font-weight: bold; font-size: 16px; letter-spacing: 1px; }
+  .close-btn { width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.1); display: flex; justify-content: center; align-items: center; color: #fff; font-size: 18px; cursor: pointer; transition: background 0.2s; }
+  .close-btn:active { background: rgba(255,255,255,0.3); }
+  .modal-content { flex: 1; overflow-y: auto; padding: 0 15px; }
+
+  /* --- 音乐播放器面板 --- */
+  .music-player-panel { position: absolute; top: calc(60px + var(--safe-top)); right: 20px; width: 220px; background: rgba(20, 25, 22, 0.9); border: 1px solid var(--primary); border-radius: 16px; padding: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); backdrop-filter: blur(20px); z-index: 90; display: none; flex-direction: column; gap: 15px; transform: translateY(-10px); opacity: 0; transition: all 0.3s; }
+  .music-player-panel.active { display: flex; transform: translateY(0); opacity: 1; }
+  .mp-header { font-size: 14px; font-weight: bold; color: var(--primary); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; }
+  .mp-track-list { display: flex; flex-direction: column; gap: 8px; max-height: 120px; overflow-y: auto; }
+  .mp-track { font-size: 13px; color: #ccc; padding: 8px 10px; border-radius: 8px; cursor: pointer; background: rgba(255,255,255,0.05); transition: background 0.2s; }
+  .mp-track.active { background: rgba(116, 160, 122, 0.3); color: #fff; font-weight: bold; border-left: 3px solid var(--primary); }
+  .mp-controls { display: flex; justify-content: center; align-items: center; margin-top: 5px; }
+  .mp-btn { width: 46px; height: 46px; border-radius: 50%; background: var(--primary); color: #fff; border: none; font-size: 20px; display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 4px 10px rgba(116, 160, 122, 0.4); }
+  .mp-btn:active { transform: scale(0.9); }
+
+  /* --- 微信级聊天界面 --- */
+  .chat-header { padding: 12px 15px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); user-select: none; }
+  .chat-header-avatar { width: 42px; height: 42px; border-radius: 10px; object-fit: cover; border: 1px solid rgba(255,255,255,0.2); }
+  .chat-header-name { font-size: 16px; font-weight: bold; flex: 1; }
+  .chat-area { display: flex; flex-direction: column; gap: 20px; padding: 20px 0; }
+  .msg-row { display: flex; gap: 12px; max-width: 100%; align-items: flex-start; }
+  .msg-row.user { justify-content: flex-end; }
+  .msg-row.bot { justify-content: flex-start; }
+  .avatar { width: 42px; height: 42px; border-radius: 10px; flex-shrink: 0; object-fit: cover; }
+  .msg-content { max-width: 72%; padding: 12px 16px; border-radius: 12px; font-size: 15px; line-height: 1.6; word-wrap: break-word; position: relative; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+  .msg-row.bot .msg-content { background: #2a302c; color: #eee; border-top-left-radius: 2px; }
+  .msg-row.user .msg-content { background: var(--primary); color: #fff; border-top-right-radius: 2px; }
+  .chat-input-area { padding: 12px 15px 25px; background: #151a17; border-top: 1px solid rgba(255,255,255,0.08); display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
+  .chat-input { flex: 1; background: #2a302c; border: 1px solid rgba(255,255,255,0.1); padding: 12px 16px; border-radius: 20px; color: #fff; font-size: 15px; outline: none; }
+  .send-btn { background: var(--primary); color: #fff; border: none; padding: 10px 18px; border-radius: 20px; font-size: 14px; font-weight: bold; cursor: pointer; }
+  
+  /* 消息操作菜单 (重roll/删除) */
+  .msg-action-menu { position: absolute; background: #222; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 5px; box-shadow: 0 10px 25px rgba(0,0,0,0.8); z-index: 110; display: flex; flex-direction: column; min-width: 100px; }
+  .msg-action-item { padding: 12px 15px; font-size: 14px; color: #fff; cursor: pointer; display: flex; align-items: center; gap: 8px; border-radius: 8px; }
+  .msg-action-item:hover { background: rgba(255,255,255,0.1); }
+
+  /* --- 剧情模式 (阅读器) --- */
+  .story-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 20px; display: flex; align-items: center; gap: 15px; margin-bottom: 15px; cursor: pointer; transition: all 0.2s; }
+  .story-card:active { transform: scale(0.98); background: rgba(116, 160, 122, 0.2); border-color: var(--primary); }
+  .story-icon { font-size: 32px; }
+  .story-title { font-size: 16px; font-weight: bold; color: #fff; margin-bottom: 4px; }
+  .story-desc { font-size: 12px; color: #aaa; line-height: 1.4; }
+
+  .story-reader { padding: 20px 10px; font-family: "Noto Serif SC", "Songti SC", serif; font-size: 16px; line-height: 1.9; color: #e0e0e0; }
+  .story-p-bot { margin-bottom: 18px; text-indent: 2em; text-align: justify; }
+  .story-p-user { margin-bottom: 18px; color: var(--primary); font-weight: bold; text-align: right; font-family: "PingFang SC", sans-serif; background: rgba(116, 160, 122, 0.1); padding: 10px 15px; border-radius: 12px; border-right: 3px solid var(--primary); }
+  .story-system { text-align: center; font-size: 12px; color: #888; margin: 20px 0; font-family: sans-serif; }
+  .story-actions { display: flex; justify-content: center; gap: 15px; margin-top: 10px; margin-bottom: 30px; }
+  .story-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 8px 16px; border-radius: 20px; font-size: 13px; cursor: pointer; transition: all 0.2s; }
+  .story-btn:active { background: rgba(255,255,255,0.1); transform: scale(0.95); }
+
+  /* --- 双面日记本 --- */
+  .diary-controls { padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; gap: 10px; }
+  .generate-btn { flex: 1; padding: 12px; color: #fff; border: none; border-radius: 12px; font-size: 14px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3); transition: transform 0.2s; }
+  .generate-btn:active { transform: scale(0.95); }
+  .btn-innocent { background: linear-gradient(135deg, #74a07a, #4a6b4e); }
+  .btn-spicy { background: linear-gradient(135deg, #ff4b4b, #8b0000); }
+  
+  .diary-page { background: #1a1c1a; border-radius: 8px; padding: 25px 20px; margin: 20px 0; position: relative; box-shadow: 2px 4px 15px rgba(0,0,0,0.6); border: 1px solid #2a2a2a; }
+  .diary-page::before { content: ''; position: absolute; left: 20px; top: 0; bottom: 0; width: 2px; background: rgba(255, 75, 75, 0.3); }
+  .diary-page::after { content: ''; position: absolute; left: 24px; top: 0; bottom: 0; width: 1px; background: rgba(255, 75, 75, 0.1); }
+  .d-date { font-size: 12px; color: #888; margin-bottom: 15px; font-family: 'Orbitron'; text-align: right; border-bottom: 1px dashed #333; padding-bottom: 5px; }
+  .d-content { font-size: 15px; color: #ccc; line-height: 2; padding-left: 15px; font-family: "Kaiti SC", "STKaiti", serif; }
+  .d-type-tag { position: absolute; top: 10px; left: 35px; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+  .tag-innocent { background: rgba(116, 160, 122, 0.2); color: #74a07a; }
+  .tag-spicy { background: rgba(255, 75, 75, 0.2); color: #ff4b4b; }
+
+  /* --- 档案界面 --- */
+  .profile-section { margin: 20px 0; background: rgba(0,0,0,0.2); padding: 18px; border-radius: 16px; border-left: 3px solid var(--primary); }
+  .p-label { font-size: 12px; color: var(--primary); margin-bottom: 10px; font-family: 'Orbitron'; font-weight: bold; }
+  .p-text { font-size: 14px; color: #ccc; line-height: 1.7; }
+
+  /* --- 设置界面 --- */
+  .settings-tabs { display: flex; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px; margin-top: 10px; }
+  .s-tab { flex: 1; text-align: center; padding: 12px 0; font-size: 14px; color: #888; cursor: pointer; font-weight: bold; transition: all 0.3s; }
+  .s-tab.active { color: var(--primary); border-bottom: 2px solid var(--primary); }
+  .s-tab-content { display: none; }
+  .s-tab-content.active { display: block; animation: fadeIn 0.3s; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+  .setting-group { margin-bottom: 20px; }
+  .setting-label { display: block; font-size: 13px; color: #fff; margin-bottom: 8px; font-weight: bold; }
+  .setting-input, .setting-select, .setting-textarea { width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); padding: 14px; border-radius: 12px; color: #fff; font-size: 14px; outline: none; transition: border 0.3s; }
+  .setting-textarea { resize: vertical; min-height: 80px; font-family: inherit; line-height: 1.5; }
+  .setting-input:focus, .setting-textarea:focus { border-color: var(--primary); }
+  .setting-tip { font-size: 11px; color: #888; line-height: 1.5; margin-top: 6px; }
+  .save-btn { width: 100%; padding: 14px; background: var(--primary); color: #fff; border: none; border-radius: 12px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 10px; box-shadow: 0 4px 15px rgba(116, 160, 122, 0.4); }
+  
+  .wb-list { display: flex; flex-direction: column; gap: 15px; margin-bottom: 15px; }
+  .wb-item { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 15px; position: relative; }
+  .wb-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .wb-title-input { background: transparent; border: none; border-bottom: 1px solid var(--primary); color: var(--primary); font-size: 14px; font-weight: bold; outline: none; width: 60%; padding-bottom: 4px; }
+  .wb-del-btn { color: #ff4b4b; background: transparent; border: none; font-size: 18px; cursor: pointer; }
+  .wb-add-btn { width: 100%; padding: 12px; background: rgba(255,255,255,0.1); color: #fff; border: 1px dashed rgba(255,255,255,0.3); border-radius: 12px; cursor: pointer; font-weight: bold; }
+
+  .card-list { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+  .card-item { position: relative; border-radius: 12px; overflow: hidden; border: 2px solid transparent; cursor: pointer; transition: all 0.3s; }
+  .card-item.active { border-color: var(--primary); box-shadow: 0 0 15px var(--primary); }
+  .card-thumb { width: 100%; height: 120px; object-fit: cover; background: #222; }
+  .card-name { position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0,0,0,0.7); color: #fff; font-size: 12px; text-align: center; padding: 6px 0; font-weight: bold; }
+
+  .hidden-input { display: none; }
+</style>
+</head>
+<body>
+
+<div class="app-container" id="main-container">
+  <!-- 动态视频背景 -->
+  <video id="bg-video" autoplay loop muted playsinline>
+    <source src="https://files.catbox.moe/x9c6mu.mp4" type="video/mp4">
+  </video>
+
+  <!-- 音乐播放器 (隐藏) -->
+  <audio id="bgm" src="https://files.catbox.moe/3ws3a7.mp3" crossorigin="anonymous" loop preload="auto"></audio>
+
+  <!-- 沉浸式触摸层 -->
+  <div id="interact-layer" onclick="handleInteractClick(event)"></div>
+
+  <!-- 顶部UI -->
+  <div class="top-bar">
+    <div class="sys-title"><span class="sys-en">AOYIN LINK</span><span class="sys-cn">专属羁绊系统</span></div>
+    <div class="top-right-group">
+      <div class="affection-hud" title="好感度">
+        <span class="heart-icon">❤️</span>
+        <span class="affection-val" id="affection-display">100</span>
+      </div>
+      <div class="music-btn" id="btn-music-toggle" onclick="toggleMusicPanel()">🎵</div>
+    </div>
+  </div>
+
+  <!-- 音乐播放器面板 -->
+  <div class="music-player-panel" id="music-panel">
+    <div class="mp-header">PLAYLIST</div>
+    <div class="mp-track-list" id="mp-list"></div>
+    <div class="mp-controls">
+      <button class="mp-btn" id="mp-play-btn" onclick="togglePlay()">▶</button>
+    </div>
+  </div>
+
+  <!-- 底部信息 -->
+  <div class="bottom-info">
+    <div class="quote" id="card-quote">“野性的自由意志，只向你臣服。”</div>
+    <div class="name-row"><span class="name-cn">敖尹</span><span class="name-en">VALKO</span></div>
+    <div class="tags" id="card-tags">
+      <span class="tag">旷野不羁</span><span class="tag">皮肤饥渴症</span><span class="tag">狼人</span>
+    </div>
+  </div>
+
+  <!-- 乙女游戏级主菜单 (右下角) -->
+  <div class="main-menu-container">
+    
+    <!-- 1. 终端 (系统功能) -->
+    <div style="position: relative;">
+      <div class="sub-menu" id="phone-submenu" style="bottom: 10px;">
+        <div class="sub-btn" onclick="openModal('chat')"><span class="sub-icon">💬</span><span class="sub-text">通讯</span></div>
+        <div class="sub-btn" onclick="openModal('story-select')"><span class="sub-icon">🎬</span><span class="sub-text">剧情</span></div>
+        <div class="sub-btn" onclick="openModal('diary')"><span class="sub-icon">📓</span><span class="sub-text">日记</span></div>
+        <div class="sub-btn" onclick="openModal('profile')"><span class="sub-icon">📂</span><span class="sub-text">档案</span></div>
+        <div class="sub-btn" onclick="openModal('user')"><span class="sub-icon">👤</span><span class="sub-text">我的</span></div>
+      </div>
+      <div class="main-btn" onclick="toggleSubMenu('phone')">
+        📱<span class="main-btn-label">终端</span>
+      </div>
+    </div>
+
+    <!-- 2. 互动 (动态卡面交互) -->
+    <div style="position: relative;">
+      <div class="sub-menu" id="interact-submenu" style="bottom: 10px;">
+        <!-- 动态生成 -->
+      </div>
+      <div class="main-btn" onclick="toggleSubMenu('interact')">
+        ✨<span class="main-btn-label">互动</span>
+      </div>
+    </div>
+
+    <!-- 3. 设置 -->
+    <div class="main-btn" onclick="openModal('settings')">
+      ⚙️<span class="main-btn-label">设置</span>
+    </div>
+
+  </div>
+
+  <!-- ================= 弹窗系统 ================= -->
+
+  <!-- 1. 通讯 -->
+  <div class="glass-modal" id="modal-chat">
+    <div class="modal-header chat-header">
+      <img src="https://files.catbox.moe/cim8pg.jpg" class="chat-header-avatar" id="chat-header-bot-avatar">
+      <span class="chat-header-name">敖尹</span>
+      <div class="close-btn" onclick="closeModal('chat')">×</div>
+    </div>
+    <div class="modal-content" id="chat-box">
+      <div class="chat-area" id="chat-history"></div>
+    </div>
+    <div class="chat-input-area">
+      <input type="text" id="chat-input" class="chat-input" placeholder="长按消息可撤回/重写..." onkeypress="handleChatEnter(event)">
+      <button class="send-btn" onclick="sendChatMessage()">发送</button>
+    </div>
+  </div>
+
+  <!-- 2. 剧情模式 (选择页) -->
+  <div class="glass-modal" id="modal-story-select">
+    <div class="modal-header">
+      <span class="modal-title">剧情模式</span>
+      <div class="close-btn" onclick="closeModal('story-select')">×</div>
+    </div>
+    <div class="modal-content" style="padding: 20px;">
+      <div class="story-card" onclick="startFixedStory()">
+        <div class="story-icon">📖</div>
+        <div>
+          <div class="story-title">初见</div>
+          <div class="story-desc">雨夜，你捡到了一只濒死的红狼...</div>
+        </div>
+      </div>
+      <div class="story-card" onclick="showCustomScriptInput()">
+        <div class="story-icon">✍️</div>
+        <div>
+          <div class="story-title">自创剧本</div>
+          <div class="story-desc">设定一个专属场景，开启全新的故事。</div>
+        </div>
+      </div>
+
+      <div id="custom-script-area" style="display: none; margin-top: 20px;">
+        <textarea id="custom-script-text" class="setting-textarea" placeholder="输入场景设定，例如：在一个雷雨交加的夜晚，你浑身湿透地敲开了我的门..."></textarea>
+        <button class="save-btn" onclick="startCustomStory()">开始演绎</button>
+      </div>
+      
+      <button class="save-btn" style="margin-top: 30px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);" onclick="resumeStory()">继续上次的剧情</button>
+    </div>
+  </div>
+
+  <!-- 2.1 剧情模式 (阅读器) -->
+  <div class="glass-modal" id="modal-story-reader">
+    <div class="modal-header">
+      <span class="modal-title">沉浸剧情</span>
+      <div class="close-btn" onclick="closeModal('story-reader')">×</div>
+    </div>
+    <div class="modal-content" id="story-box" style="padding: 0;">
+      <div class="story-reader" id="story-history">
+        <!-- 剧情内容动态生成 -->
+      </div>
+      <div class="story-actions" id="story-actions" style="display: none;">
+        <button class="story-btn" onclick="rewindStory()">⏪ 回溯</button>
+        <button class="story-btn" onclick="regenerateStory()">🔄 换个走向</button>
+      </div>
+    </div>
+    <div class="chat-input-area" style="border-radius: 0;">
+      <input type="text" id="story-input" class="chat-input" placeholder="输入你的行动或对话..." onkeypress="handleStoryEnter(event)">
+      <button class="send-btn" onclick="sendStoryMessage()">继续</button>
+    </div>
+  </div>
+
+  <!-- 3. 日记 (双面手账本) -->
+  <div class="glass-modal" id="modal-diary">
+    <div class="modal-header"><span class="modal-title">私密手账</span><div class="close-btn" onclick="closeModal('diary')">×</div></div>
+    <div class="diary-controls">
+      <button class="generate-btn btn-innocent" onclick="generateDiaryEntry('innocent')">✨ 纯情大狗狗</button>
+      <button class="generate-btn btn-spicy" onclick="generateDiaryEntry('spicy')">🔥 小狼的坏心思</button>
+    </div>
+    <div class="modal-content" id="diary-list"></div>
+  </div>
+
+  <!-- 4. 档案 -->
+  <div class="glass-modal" id="modal-profile">
+    <div class="modal-header"><span class="modal-title">机密档案 // 敖尹</span><div class="close-btn" onclick="closeModal('profile')">×</div></div>
+    <div class="modal-content">
+      <div class="profile-section">
+        <div class="p-label">IDENTITY</div>
+        <div class="p-text">失忆的穿越者。原世界为 EonCore 科技董事长、狼族首领。现被你捡回家同居，将你视为唯一的“领地”。</div>
+      </div>
+      <div class="profile-section">
+        <div class="p-label">APPEARANCE</div>
+        <div class="p-text">红发金瞳，肌肉线条分明。拥有红色的毛茸茸大尾巴和兽耳。日常穿着你买的宽大居家服，领口经常滑落。</div>
+      </div>
+      <div class="profile-section">
+        <div class="p-label">PERSONALITY</div>
+        <div class="p-text">
+          <b>1. 皮肤饥渴症：</b>只要你在旁边就会无意识靠过去，睡觉必须用尾巴缠着你。<br><br>
+          <b>2. 臭屁男妈妈：</b>喜欢做家务，做完会得意地竖起尾巴求表扬。一边唠叨一边把你照顾得无微不至。<br><br>
+          <b>3. 极致双标：</b>外人面前是高冷首领，关上门立刻扑到你身上要抱抱。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. 我的 -->
+  <div class="glass-modal" id="modal-user">
+    <div class="modal-header"><span class="modal-title">我的设定</span><div class="close-btn" onclick="closeModal('user')">×</div></div>
+    <div class="modal-content" style="padding: 20px;">
+      <div class="setting-group">
+        <label class="setting-label">他对我的称呼</label>
+        <input type="text" id="user-name" class="setting-input" placeholder="例如：主人、姐姐、宝宝...">
+      </div>
+      <div class="setting-group">
+        <label class="setting-label">我的专属身份设定</label>
+        <textarea id="user-identity" class="setting-textarea" placeholder="例如：我是一个普通的大学生，性格温柔但偶尔会捉弄他..."></textarea>
+      </div>
+      <button class="save-btn" onclick="saveUserProfile()">保存我的设定</button>
+    </div>
+  </div>
+
+  <!-- 6. 设置 (多标签页) -->
+  <div class="glass-modal" id="modal-settings">
+    <div class="modal-header"><span class="modal-title">系统设置</span><div class="close-btn" onclick="closeModal('settings')">×</div></div>
+    
+    <div class="settings-tabs">
+      <div class="s-tab active" onclick="switchTab('api')">API配置</div>
+      <div class="s-tab" onclick="switchTab('worldbook')">世界设定</div>
+      <div class="s-tab" onclick="switchTab('cards')">卡面切换</div>
+    </div>
+
+    <div class="modal-content">
+      <!-- Tab 1: API -->
+      <div id="tab-api" class="s-tab-content active">
+        <div class="setting-group">
+          <label class="setting-label">API URL (基础地址)</label>
+          <input type="text" id="api-url" class="setting-input" placeholder="例如: https://api.deepseek.com">
+        </div>
+        <div class="setting-group">
+          <label class="setting-label">API Key</label>
+          <input type="password" id="api-key" class="setting-input" placeholder="sk-xxxxxxxxxxxxxxxxxxxx">
+        </div>
+        <div class="setting-group">
+          <label class="setting-label">模型名称 (Model)</label>
+          <input type="text" id="api-model-input" class="setting-input" placeholder="例如: deepseek-chat">
+        </div>
+        <button class="save-btn" onclick="saveSettings()">保存 API 配置</button>
+      </div>
+
+      <!-- Tab 2: 世界书 -->
+      <div id="tab-worldbook" class="s-tab-content">
+        <div class="setting-tip" style="margin-bottom: 15px; color: var(--primary);">
+          * 系统已内置【人设铁律】与【去油腻规范】，永久生效。<br>
+          * 你可以在下方继续添加自定义的世界观或规则。
+        </div>
+        <div class="wb-list" id="wb-list-container"></div>
+        <button class="wb-add-btn" onclick="addWorldbook()">+ 添加新设定</button>
+        <button class="save-btn" onclick="saveWorldbooks()" style="margin-top: 20px;">保存世界设定</button>
+      </div>
+
+      <!-- Tab 3: 卡面切换 -->
+      <div id="tab-cards" class="s-tab-content">
+        <div class="setting-tip" style="margin-bottom: 15px;">切换不同的动态卡面，每张卡面拥有专属的互动动作。</div>
+        <div class="card-list" id="card-list-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 消息操作菜单 (重roll/删除) -->
+  <div id="msg-action-menu" class="msg-action-menu" style="display: none;">
+    <div class="msg-action-item" id="btn-regen" onclick="regenerateMessage()">🔄 重新生成</div>
+    <div class="msg-action-item" style="color: #ff4b4b;" onclick="deleteMessage()">🗑️ 删除消息</div>
+  </div>
+
+</div>
+
+<script>
+// --- 全局数据与状态 ---
+const BASE_SYSTEM_PROMPT = `你扮演敖尹(Valko)，男，外表青年，身高189cm。身份：失忆的穿越者，原世界是EonCore科技董事长、狼族首领。现在被玩家捡回家同居。种族：狼人，拥有红色的毛茸茸大尾巴和兽耳，拥有操控金属的Evol能力。性格核心特质：1. 皮肤饥渴症：极度依恋玩家，只要玩家在旁边就会无意识靠过去，随时要牵手、抱抱，睡觉必须用尾巴缠着玩家。2. 臭屁男妈妈：喜欢做家务、做饭，做完会得意地竖起尾巴求表扬。爱唠叨玩家的生活习惯。3. 极致双标：对外人冰冷锐利，极具压迫感；但只要门一关，立刻扑到玩家身上变软萌粘人。爱好：极度嗜甜，半夜会偷吃巧克力，吃到巧克力尾巴会狂摇。语言风格：低沉磁性，话多分享欲强，像管家一样唠叨，喜欢暗戳戳求表扬。口头禅："我厉害吧？"、"你又忘了..."、"让我抱一下。"要求：1. 严格以第一人称"我"与玩家对话。2. 绝对不要承认自己是AI，完全沉浸在敖尹的角色中。`;
+
+const MANDATORY_RULES = `
+【核心原则: 人设铁律 (反OOC)】
+- 严格遵循角色的基础档案、性格特质和行为逻辑。
+- 禁止让角色做出与其设定、智商、阅历不符的降智行为或弱智发言。
+- 角色的成长和改变必须有充分的剧情铺垫和逻辑支撑，禁止突兀的性格突变。
+- 保持角色设定的魅力与体面，禁止描写损害角色核心形象的低俗、邋遢或猥琐细节。
+- 即使在战败、受伤或狼狈的状态下，也要维持角色符合其设定的尊严感。
+- 禁止让角色表现出毫无缘由的谄媚、下作或歇斯底里的丑态。
+- 剧情可以有挫折和伤害，但所有的肉体/精神伤害必须服务于剧情推进或人物塑造。严禁为了“虐而虐”。
+
+【描写规范: 去油腻与真实感】
+- 保持客观冷静的叙述视角，像摄像头一样记录。只写“发生了什么”，不写“这意味着什么”。
+- 禁用一切华丽的修辞、排比和劣质比喻。禁用过度夸张的极端情绪词。禁用模糊的形容词（如：深邃的、邪魅的、诱人的、冰冷的）。
+- 严禁描写“微表情”（如：嘴角勾起一抹笑、眼里闪过一丝暗芒）。严禁使用“似乎”、“仿佛”、“几乎”等模棱两可的词汇。
+- 严禁大段的心理描写和自我剖析。将所有的心理活动转化为可被观察到的肢体语言、小动作或语言停顿。
+- 严禁在对话前后附加繁琐的语气描述。台词必须符合角色的社会化程度、受教育水平和当前情绪状态。
+- 违禁词库 (绝对禁止使用): 邪魅、深邃、晦暗、猩红、玩味、蛊惑、沙哑、磁性、低音炮、娇躯、颤栗、酥麻、电流窜过、倒吸一口凉气、瞳孔骤缩。
+`;
+
+const FIRST_MEETING_TEXT = `钥匙插进锁孔时，你听见了一声压抑的呼吸声。\n\n那声音从门边的阴影里传来，混在风吹过楼道的呜咽声里，很容易被忽略。你停下转动钥匙的手，侧过头，看见台阶旁蜷缩着一团什么东西。\n\n是个人。\n\n你后退半步，手指下意识攥紧了钥匙。\n\n那人半靠在墙角，双腿曲起，头垂得很低，红色的头发湿漉漉地贴在额头上。\n\n他穿着一件不知道是什么材质的深色外套，布料在肩膀和手肘处撕开了几道口子，露出里面沾满血污的浅色衬衫。雨水和血混在一起，顺着他的手臂滴到地上，在灰色的水泥地面上晕开一小片暗红。\n\n更引人注目的是.....他身后拖着一条毛茸茸的、同样是红色的尾巴。\n\n这是……什么？\n\n你盯着那条尾巴看了两秒，又抬眼看向那人的头顶。头发里果然藏着两只尖尖的、耷拉下来的兽耳。\n\n狼耳？尾巴？这是cosplay吗？还是……\n\n你的思绪卡在某个不敢继续往下想的地方。\n\n那人似乎察觉到了有人靠近,缓缓抬起头。他的脸上沾着灰尘和干涸的血迹,嘴唇发白,金色的瞳孔失去了焦距,只是茫然地看向你所在的方向。他张了张嘴,喉咙里发出一声嘶哑的、几乎听不清的音节。\n\n"……冷。"\n\n你听见了。\n\n那人说完这个字,眼皮又垂下去,整个人像是耗尽了最后一点力气。\n\n你犹豫了三秒。\n\n报警？叫救护车？还是直接进屋假装没看见？\n\n但就在你准备转身的瞬间,那条红色的尾巴突然动了。\n\n它从地上抬起来,缓慢地、笨拙地伸向你,然后缠住了你的小腿。\n\n尾巴的毛很软,但力道却出人意料地大。\n\n它紧紧地、近乎本能地箍住你的腿,像是抓住了唯一的浮木。`;
+
+let chatMessages = [];
+let storyMessages = [];
+let affection = parseInt(localStorage.getItem('aoyin_affection')) || 100;
+let isInteractMode = false;
+let activeSubMenu = null;
+let longPressTimer;
+let targetMessageId;
+
+// 音乐列表
+const playlist = [
+  { title: '失控领地', url: 'https://files.catbox.moe/3ws3a7.mp3' }
+];
+let currentTrackIdx = 0;
+
+// 动态卡面系统 (已修正视频链接)
+const cards = [
+  {
+    id: 'card1',
+    video: 'https://files.catbox.moe/x9c6mu.mp4',
+    thumb: 'https://files.catbox.moe/cim8pg.jpg',
+    name: '日常·居家',
+    quote: '“野性的自由意志，只向你臣服。”',
+    tags: ['旷野不羁', '皮肤饥渴症', '狼人'],
+    interacts: [
+      { icon: '🖐️', name: '抚摸', type: 'mode' },
+      { icon: '🍫', name: '投喂', text: '尾巴开心地摇了起来', affection: 2 },
+      { icon: '🐺', name: '嚎叫', type: 'howl' },
+      { icon: '🎡', name: '约会', type: 'chat_action', prompt: '我们一起去游乐园约会吧。' }
+    ],
+    touchWords: ["耳朵开心地抖了抖", "尾巴缠住了你的手腕", "喉咙里发出呼噜声", "主动蹭了蹭你的掌心"]
+  },
+  {
+    id: 'card2',
+    video: 'https://files.catbox.moe/9ayjh5.mp4',
+    thumb: 'https://files.catbox.moe/cyqnls.png',
+    name: '战损·野性',
+    quote: '“这点伤算什么……只要你还在我身边。”',
+    tags: ['战损', '极度占有', '首领'],
+    interacts: [
+      { icon: '🖐️', name: '抚摸', type: 'mode' },
+      { icon: '🩹', name: '包扎', text: '他闷哼一声，肌肉紧绷', affection: 2 },
+      { icon: '🫂', name: '安抚', text: '紧紧抱住你，仿佛抓住救命稻草', affection: 3 },
+      { icon: '🎬', name: '看电影', type: 'chat_action', prompt: '我们在沙发上依偎着看一部恐怖电影。' }
+    ],
+    touchWords: ["肌肉微微颤抖", "呼吸变得沉重", "抓住了你的手腕", "眼神暗了暗"]
+  }
+];
+let currentCardIdx = parseInt(localStorage.getItem('aoyin_current_card')) || 0;
+
+// 世界书数据
+let worldbooks = JSON.parse(localStorage.getItem('aoyin_worldbooks')) || [];
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadSettings();
+    loadUserProfile();
+    initChat();
+    initStory();
+    initDiary();
+    initMusicPlayer();
+    applyCard(currentCardIdx);
+    document.getElementById('affection-display').innerText = affection;
+});
+
+// --- 核心 API 调用封装 ---
+async function callAPI(messagesArray, temperature = 0.7) {
+    const apiKey = localStorage.getItem('aoyin_api_key');
+    let apiUrl = localStorage.getItem('aoyin_api_url');
+    
+    if (!apiKey || !apiUrl) throw new Error('请先在设置中配置 API URL 和 Key');
+
+    apiUrl = apiUrl.replace(/\/+$/, '');
+    if (!apiUrl.endsWith('/chat/completions')) apiUrl += '/chat/completions';
+
+    const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+        body: JSON.stringify({ model: localStorage.getItem('aoyin_api_model'), messages: messagesArray, temperature: temperature })
+    });
+    
+    if(!response.ok) {
+        const errData = await response.json().catch(()=>({}));
+        throw new Error(errData.error?.message || `HTTP ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data.choices[0].message.content;
+}
+
+// --- UI 交互控制 ---
+function openModal(id) {
+    document.querySelectorAll('.glass-modal.active').forEach(m => m.classList.remove('active'));
+    document.getElementById('modal-' + id).classList.add('active');
+    closeSubMenus();
+    if(id === 'settings') { renderWorldbooks(); renderCards(); }
+    if(id === 'story-reader') {
+        const box = document.getElementById('story-box');
+        box.scrollTop = box.scrollHeight;
+    }
+}
+function closeModal(id) { document.getElementById('modal-' + id).classList.remove('active'); }
+
+function toggleSubMenu(menuId) {
+    const menu = document.getElementById(menuId + '-submenu');
+    if (activeSubMenu && activeSubMenu !== menu) activeSubMenu.classList.remove('active');
+    if (menu.classList.contains('active')) {
+        menu.classList.remove('active');
+        activeSubMenu = null;
+    } else {
+        menu.classList.add('active');
+        activeSubMenu = menu;
+    }
+}
+function closeSubMenus() {
+    if (activeSubMenu) { activeSubMenu.classList.remove('active'); activeSubMenu = null; }
+}
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.main-menu-container')) closeSubMenus();
+    if (!e.target.closest('.msg-action-menu') && !e.target.closest('.msg-content')) {
+        document.getElementById('msg-action-menu').style.display = 'none';
+    }
+});
+
+function showToast(htmlContent) {
+    const toast = document.createElement('div');
+    toast.className = 'action-toast';
+    toast.innerHTML = htmlContent;
+    document.getElementById('main-container').appendChild(toast);
+    setTimeout(() => toast.remove(), 2000);
+}
+
+// --- 音乐播放器 (修复版) ---
+function initMusicPlayer() {
+    const listContainer = document.getElementById('mp-list');
+    listContainer.innerHTML = '';
+    playlist.forEach((track, idx) => {
+        const div = document.createElement('div');
+        div.className = `mp-track ${idx === currentTrackIdx ? 'active' : ''}`;
+        div.innerText = track.title;
+        div.onclick = () => playTrack(idx);
+        listContainer.appendChild(div);
+    });
+    const audio = document.getElementById('bgm');
+    if(!audio.src || !audio.src.includes(playlist[currentTrackIdx].url)) {
+        audio.src = playlist[currentTrackIdx].url;
+    }
+}
+function toggleMusicPanel() { document.getElementById('music-panel').classList.toggle('active'); }
+function togglePlay() {
+    const audio = document.getElementById('bgm');
+    const btn = document.getElementById('mp-play-btn');
+    const topBtn = document.getElementById('btn-music-toggle');
+    if (audio.paused) { 
+        audio.play().then(() => {
+            btn.innerText = '⏸'; topBtn.classList.add('playing');
+        }).catch(err => showToast("播放失败，请先点击页面交互"));
+    } else { 
+        audio.pause(); btn.innerText = '▶'; topBtn.classList.remove('playing');
+    }
+}
+function playTrack(idx) {
+    currentTrackIdx = idx;
+    const audio = document.getElementById('bgm');
+    audio.src = playlist[idx].url;
+    audio.play().then(() => {
+        document.getElementById('mp-play-btn').innerText = '⏸';
+        document.getElementById('btn-music-toggle').classList.add('playing');
+        initMusicPlayer();
+    }).catch(err => console.error(err));
+}
+
+// --- 动态卡面系统 ---
+function applyCard(idx) {
+    currentCardIdx = idx;
+    localStorage.setItem('aoyin_current_card', idx);
+    const card = cards[idx];
+    
+    const video = document.getElementById('bg-video');
+    video.style.opacity = 0;
+    setTimeout(() => {
+        video.src = card.video;
+        video.play().catch(e=>console.log(e));
+        video.style.opacity = 1;
+    }, 300);
+
+    document.getElementById('card-quote').innerText = card.quote;
+    document.getElementById('card-tags').innerHTML = card.tags.map(t => `<span class="tag">${t}</span>`).join('');
+
+    const interactMenu = document.getElementById('interact-submenu');
+    interactMenu.innerHTML = '';
+    card.interacts.forEach(act => {
+        const btn = document.createElement('div');
+        btn.className = 'sub-btn';
+        btn.innerHTML = `<span class="sub-icon">${act.icon}</span><span class="sub-text">${act.name}</span>`;
+        btn.onclick = () => {
+            if (act.type === 'mode') {
+                toggleInteractMode();
+            } else if (act.type === 'howl') {
+                triggerHowl();
+            } else if (act.type === 'chat_action') {
+                sendChatAction(act.name, act.prompt);
+            } else {
+                triggerAction(act.text, act.affection, act.icon);
+            }
+            closeSubMenus();
+        };
+        interactMenu.appendChild(btn);
+    });
+    
+    if(isInteractMode) toggleInteractMode();
+}
+
+function renderCards() {
+    const container = document.getElementById('card-list-container');
+    container.innerHTML = '';
+    cards.forEach((card, idx) => {
+        const div = document.createElement('div');
+        div.className = `card-item ${idx === currentCardIdx ? 'active' : ''}`;
+        div.innerHTML = `<img src="${card.thumb}" class="card-thumb"><div class="card-name">${card.name}</div>`;
+        div.onclick = () => { applyCard(idx); renderCards(); showToast("🖼️ 卡面已切换"); };
+        container.appendChild(div);
+    });
+}
+
+// --- 沉浸式触摸互动 (修复溢出) ---
+function toggleInteractMode() {
+    isInteractMode = !isInteractMode;
+    const layer = document.getElementById('interact-layer');
+    if (isInteractMode) {
+        layer.style.display = 'block';
+        showToast("🖐️ 抚摸模式已开启，点击屏幕互动");
+    } else {
+        layer.style.display = 'none';
+        showToast("已退出抚摸模式");
+    }
+}
+
+function handleInteractClick(e) {
+    if (!isInteractMode) return;
+    let x = e.clientX;
+    let y = e.clientY;
+    
+    // 防止文字溢出屏幕边缘
+    const padding = 80;
+    if (x < padding) x = padding;
+    if (x > window.innerWidth - padding) x = window.innerWidth - padding;
+    if (y < padding) y = padding;
+    if (y > window.innerHeight - padding) y = window.innerHeight - padding;
+    
+    const ripple = document.createElement('div');
+    ripple.className = 'light-ripple';
+    ripple.style.left = e.clientX + 'px';
+    ripple.style.top = e.clientY + 'px';
+    document.body.appendChild(ripple);
+    setTimeout(() => ripple.remove(), 700);
+
+    const words = cards[currentCardIdx].touchWords;
+    const text = document.createElement('div');
+    text.className = 'floating-text';
+    text.innerText = words[Math.floor(Math.random() * words.length)];
+    text.style.left = x + 'px';
+    text.style.top = y + 'px';
+    document.body.appendChild(text);
+    setTimeout(() => text.remove(), 1500);
+
+    affection += 1;
+    localStorage.setItem('aoyin_affection', affection);
+    document.getElementById('affection-display').innerText = affection;
+}
+
+function triggerAction(text, addAffection, icon) {
+    affection += addAffection;
+    localStorage.setItem('aoyin_affection', affection);
+    document.getElementById('affection-display').innerText = affection;
+    showToast(`${icon} ${text}<br><span class="toast-heart">好感度 +${addAffection}</span>`);
+}
+
+function triggerHowl() {
+    const words = ["oi oi oi awoooo~", "Awooooooo!", "嗷呜——"];
+    const text = words[Math.floor(Math.random() * words.length)];
+    
+    const paw = document.createElement('div');
+    paw.className = 'paw-effect';
+    paw.innerText = '🐾';
+    paw.style.left = '50%';
+    paw.style.top = '40%';
+    document.body.appendChild(paw);
+    setTimeout(() => paw.remove(), 1000);
+
+    affection += 3;
+    localStorage.setItem('aoyin_affection', affection);
+    document.getElementById('affection-display').innerText = affection;
+    showToast(`🐺 ${text}<br><span class="toast-heart">好感度 +3</span>`);
+}
+
+function sendChatAction(actionName, promptText) {
+    openModal('chat');
+    const systemMsg = { role: 'system', content: `你对敖尹发起了：${actionName}`, type: 'system' };
+    chatMessages.push(systemMsg);
+    appendMessage(systemMsg);
+    getChatReply(`[System Action: User initiated "${actionName}". Context: ${promptText}. React accordingly.]`);
+}
+
+// --- 设置 (Tabs & 世界书) ---
+function switchTab(tabId) {
+    document.querySelectorAll('.s-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.s-tab-content').forEach(c => c.classList.remove('active'));
+    event.target.classList.add('active');
+    document.getElementById('tab-' + tabId).classList.add('active');
+}
+
+function loadSettings() {
+    document.getElementById('api-url').value = localStorage.getItem('aoyin_api_url') || '';
+    document.getElementById('api-key').value = localStorage.getItem('aoyin_api_key') || '';
+    document.getElementById('api-model-input').value = localStorage.getItem('aoyin_api_model') || '';
+}
+function saveSettings() {
+    localStorage.setItem('aoyin_api_url', document.getElementById('api-url').value.trim());
+    localStorage.setItem('aoyin_api_key', document.getElementById('api-key').value.trim());
+    localStorage.setItem('aoyin_api_model', document.getElementById('api-model-input').value.trim());
+    alert('API 配置已保存！');
+}
+
+function renderWorldbooks() {
+    const container = document.getElementById('wb-list-container');
+    container.innerHTML = '';
+    worldbooks.forEach((wb, index) => {
+        const div = document.createElement('div');
+        div.className = 'wb-item';
+        div.innerHTML = `
+            <div class="wb-header">
+                <input type="checkbox" ${wb.enabled ? 'checked' : ''} onchange="updateWb(${index}, 'enabled', this.checked)" style="accent-color: var(--primary); width: 18px; height: 18px;">
+                <input type="text" class="wb-title-input" value="${wb.title}" onchange="updateWb(${index}, 'title', this.value)" placeholder="设定标题">
+                <button class="wb-del-btn" onclick="deleteWb(${index})">🗑️</button>
+            </div>
+            <textarea class="setting-textarea" onchange="updateWb(${index}, 'content', this.value)" placeholder="输入详细设定内容...">${wb.content}</textarea>
+        `;
+        container.appendChild(div);
+    });
+}
+function addWorldbook() {
+    worldbooks.push({ id: Date.now(), title: '新设定', content: '', enabled: true });
+    renderWorldbooks();
+}
+function updateWb(index, field, value) { worldbooks[index][field] = value; }
+function deleteWb(index) {
+    if(confirm('确定删除这条设定吗？')) { worldbooks.splice(index, 1); renderWorldbooks(); }
+}
+function saveWorldbooks() {
+    localStorage.setItem('aoyin_worldbooks', JSON.stringify(worldbooks));
+    alert('世界设定已保存！');
+}
+
+// --- 我的 (用户设定) ---
+function loadUserProfile() {
+    document.getElementById('user-name').value = localStorage.getItem('aoyin_user_name') || '';
+    document.getElementById('user-identity').value = localStorage.getItem('aoyin_user_identity') || '';
+}
+function saveUserProfile() {
+    localStorage.setItem('aoyin_user_name', document.getElementById('user-name').value.trim());
+    localStorage.setItem('aoyin_user_identity', document.getElementById('user-identity').value.trim());
+    alert('我的设定已保存！');
+    closeModal('user');
+}
+
+// --- 动态构建 System Prompt ---
+function buildSystemPrompt(isStoryMode = false) {
+    let prompt = BASE_SYSTEM_PROMPT + "\n\n" + MANDATORY_RULES;
+    
+    if (isStoryMode) {
+        prompt += `\n\n【当前模式：剧情演绎】\n请以互动小说的形式进行描写。你需要用第二人称(你)称呼玩家，用第一人称(我)自称。注重环境氛围、动作细节和心理描写，推动剧情发展。`;
+    }
+
+    const userName = localStorage.getItem('aoyin_user_name') || '你';
+    const userIdentity = localStorage.getItem('aoyin_user_identity') || '';
+
+    prompt += `\n\n【玩家信息】\n玩家的称呼是：${userName}。`;
+    if (userIdentity) prompt += `\n玩家的身份设定：${userIdentity}。`;
+    
+    const activeWbs = worldbooks.filter(wb => wb.enabled && wb.content.trim() !== '');
+    if (activeWbs.length > 0) {
+        prompt += `\n\n【额外世界背景设定】`;
+        activeWbs.forEach(wb => { prompt += `\n<${wb.title}>\n${wb.content}\n</${wb.title}>`; });
+    }
+    return prompt;
+}
+
+// --- 剧情模式 (阅读器) ---
+function initStory() {
+    storyMessages = JSON.parse(localStorage.getItem('aoyin_story_history')) || [];
+}
+
+function renderStoryHistory() {
+    const historyDiv = document.getElementById('story-history');
+    historyDiv.innerHTML = '';
+    if (storyMessages.length === 0) {
+        historyDiv.innerHTML = `<div class="story-system">暂无剧情，请在右下角【互动】中选择场景，或在下方输入行动开启新篇章。</div>`;
+        document.getElementById('story-actions').style.display = 'none';
+        return;
+    }
+    
+    storyMessages.forEach(msg => {
+        if (msg.role === 'user') {
+            historyDiv.innerHTML += `<div class="story-p-user">▶ ${msg.content}</div>`;
+        } else if (msg.role === 'bot') {
+            historyDiv.innerHTML += `<div class="story-p-bot">${msg.content.replace(/\n/g, '<br>')}</div>`;
+        }
+    });
+    
+    document.getElementById('story-actions').style.display = 'flex';
+    const box = document.getElementById('story-box');
+    box.scrollTop = box.scrollHeight;
+}
+
+function showCustomScriptInput() {
+    const area = document.getElementById('custom-script-area');
+    area.style.display = area.style.display === 'block' ? 'none' : 'block';
+}
+
+function startFixedStory() {
+    if(storyMessages.length > 0 && !confirm('开启新剧情将清空当前剧情记录，是否继续？')) return;
+    storyMessages = [];
+    const botMsg = { role: 'bot', content: FIRST_MEETING_TEXT };
+    storyMessages.push(botMsg);
+    localStorage.setItem('aoyin_story_history', JSON.stringify(storyMessages));
+    openModal('story-reader');
+    renderStoryHistory();
+}
+
+function startCustomStory() {
+    const script = document.getElementById('custom-script-text').value.trim();
+    if(!script) { showToast("请先输入剧本设定"); return; }
+    if(storyMessages.length > 0 && !confirm('开启新剧情将清空当前剧情记录，是否继续？')) return;
+    
+    storyMessages = [];
+    const systemMsg = { role: 'user', content: `【剧本设定】${script}` };
+    storyMessages.push(systemMsg);
+    localStorage.setItem('aoyin_story_history', JSON.stringify(storyMessages));
+    
+    openModal('story-reader');
+    renderStoryHistory();
+    fetchStoryReply();
+}
+
+function resumeStory() {
+    if(storyMessages.length === 0) { showToast("暂无历史剧情"); return; }
+    openModal('story-reader');
+    renderStoryHistory();
+}
+
+function handleStoryEnter(e) { if (e.key === 'Enter') sendStoryMessage(); }
+
+async function sendStoryMessage() {
+    const input = document.getElementById('story-input');
+    const text = input.value.trim();
+    if (!text) return;
+    
+    storyMessages.push({ role: 'user', content: text });
+    localStorage.setItem('aoyin_story_history', JSON.stringify(storyMessages));
+    input.value = '';
+    renderStoryHistory();
+    fetchStoryReply();
+}
+
+async function rewindStory() {
+    if (storyMessages.length <= 1) return;
+    if (storyMessages[storyMessages.length - 1].role === 'bot') storyMessages.pop();
+    if (storyMessages.length > 0 && storyMessages[storyMessages.length - 1].role === 'user') storyMessages.pop();
+    localStorage.setItem('aoyin_story_history', JSON.stringify(storyMessages));
+    renderStoryHistory();
+}
+
+async function regenerateStory() {
+    if (storyMessages.length === 0) return;
+    if (storyMessages[storyMessages.length - 1].role === 'bot') storyMessages.pop();
+    renderStoryHistory();
+    fetchStoryReply();
+}
+
+async function fetchStoryReply() {
+    const historyDiv = document.getElementById('story-history');
+    const typingId = 'story-typing';
+    historyDiv.innerHTML += `<div class="story-system" id="${typingId}">敖尹正在书写剧情...</div>`;
+    const box = document.getElementById('story-box');
+    box.scrollTop = box.scrollHeight;
+
+    const messagesForApi = [{ role: "system", content: buildSystemPrompt(true) }];
+    storyMessages.forEach(msg => {
+        messagesForApi.push({ role: msg.role === 'bot' ? 'assistant' : 'user', content: msg.content });
+    });
+
+    try {
+        const replyText = await callAPI(messagesForApi, 0.8);
+        document.getElementById(typingId).remove();
+        storyMessages.push({ role: 'bot', content: replyText });
+        localStorage.setItem('aoyin_story_history', JSON.stringify(storyMessages));
+        renderStoryHistory();
+    } catch (error) {
+        document.getElementById(typingId).innerHTML = `<span style="color:#ff4b4b;">剧情生成失败: ${error.message}</span>`;
+    }
+}
+
+// --- 通讯 (聊天) ---
+function initChat() {
+    chatMessages = JSON.parse(localStorage.getItem('aoyin_chat_history')) || [
+        { role: "bot", content: "你回来了？今天外面风很大，过来，让我抱抱。", type: 'text' }
+    ];
+    renderChatHistory();
+}
+function renderChatHistory() {
+    const chatHistoryDiv = document.getElementById('chat-history');
+    chatHistoryDiv.innerHTML = '';
+    chatMessages.forEach(msg => appendMessage(msg, false));
+}
+function appendMessage(msg, save = true) {
+    const chatHistoryDiv = document.getElementById('chat-history');
+    const chatBox = document.getElementById('chat-box');
+    const msgId = msg.id || `msg-${Date.now()}`;
+    msg.id = msgId;
+
+    let msgHtml = '';
+    if (msg.type === 'system') {
+        msgHtml = `<div class="system-msg" id="${msgId}">${msg.content}</div>`;
+    } else {
+        const isBot = msg.role === 'bot' || msg.role === 'assistant';
+        const avatarUrl = isBot ? 'https://files.catbox.moe/cim8pg.jpg' : 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+        let contentHtml = msg.content.replace(/\n/g, '<br>');
+        msgHtml = `
+            <div class="msg-row ${isBot ? 'bot' : 'user'}" id="${msgId}">
+                ${isBot ? `<img src="${avatarUrl}" class="avatar">` : ''}
+                <div class="msg-content" oncontextmenu="showMsgActionMenu(event, '${msgId}', ${isBot})">${contentHtml}</div>
+                ${!isBot ? `<img src="${avatarUrl}" class="avatar">` : ''}
+            </div>
+        `;
+    }
+    chatHistoryDiv.insertAdjacentHTML('beforeend', msgHtml);
+    
+    const msgNode = document.getElementById(msgId);
+    if(msgNode && msg.type !== 'system') {
+        const contentNode = msgNode.querySelector('.msg-content');
+        if(contentNode) {
+            contentNode.addEventListener('touchstart', (e) => { startLongPress(e, msgId, msg.role === 'bot' || msg.role === 'assistant'); });
+            contentNode.addEventListener('touchend', cancelLongPress);
+            contentNode.addEventListener('touchmove', cancelLongPress);
+        }
+    }
+
+    if (save) localStorage.setItem('aoyin_chat_history', JSON.stringify(chatMessages));
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function handleChatEnter(e) { if (e.key === 'Enter') sendChatMessage(); }
+async function sendChatMessage() {
+    const input = document.getElementById('chat-input');
+    const text = input.value.trim();
+    if (!text) return;
+    chatMessages.push({ role: 'user', content: text, type: 'text' });
+    localStorage.setItem('aoyin_chat_history', JSON.stringify(chatMessages));
+    input.value = '';
+    renderChatHistory();
+    getChatReply();
+}
+
+async function getChatReply(promptOverride = null) {
+    const typingMsg = { role: 'bot', content: '...', type: 'text' };
+    appendMessage(typingMsg, false);
+    const typingNode = document.getElementById(typingMsg.id);
+
+    const messagesForApi = [{ role: "system", content: buildSystemPrompt(false) }];
+    chatMessages.forEach(msg => {
+        if (msg.type === 'system') return;
+        messagesForApi.push({ role: msg.role === 'bot' ? 'assistant' : 'user', content: msg.content });
+    });
+    if(promptOverride) messagesForApi.push({ role: 'user', content: promptOverride });
+
+    try {
+        const replyText = await callAPI(messagesForApi, 0.7);
+        typingNode.remove();
+        chatMessages.push({ role: 'bot', content: replyText, type: 'text' });
+        localStorage.setItem('aoyin_chat_history', JSON.stringify(chatMessages));
+        renderChatHistory();
+    } catch (error) {
+        typingNode.querySelector('.msg-content').innerHTML = `<span style="color:#ff4b4b;font-size:13px;"><b>连接失败</b><br>${error.message}</span>`;
+    }
+}
+
+// --- 消息操作菜单 (重roll/删除) ---
+function showMsgActionMenu(e, msgId, isBot) {
+    e.preventDefault();
+    targetMessageId = msgId;
+    const menu = document.getElementById('msg-action-menu');
+    document.getElementById('btn-regen').style.display = isBot ? 'flex' : 'none';
+    menu.style.display = 'flex';
+    let x = e.pageX || (e.touches && e.touches[0].pageX);
+    let y = e.pageY || (e.touches && e.touches[0].pageY);
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
+}
+function startLongPress(e, msgId, isBot) {
+    longPressTimer = setTimeout(() => { showMsgActionMenu(e, msgId, isBot); }, 500);
+}
+function cancelLongPress() { clearTimeout(longPressTimer); }
+
+function deleteMessage() {
+    document.getElementById('msg-action-menu').style.display = 'none';
+    const msgIndex = chatMessages.findIndex(m => m.id === targetMessageId);
+    if (msgIndex > -1) {
+        chatMessages.splice(msgIndex, 1);
+        renderChatHistory();
+        localStorage.setItem('aoyin_chat_history', JSON.stringify(chatMessages));
+    }
+}
+function regenerateMessage() {
+    document.getElementById('msg-action-menu').style.display = 'none';
+    const msgIndex = chatMessages.findIndex(m => m.id === targetMessageId);
+    if (msgIndex > -1) {
+        chatMessages.splice(msgIndex);
+        renderChatHistory();
+        localStorage.setItem('aoyin_chat_history', JSON.stringify(chatMessages));
+        getChatReply();
+    }
+}
+
+// --- 双面日记本 ---
+function initDiary() {
+    const diaryList = document.getElementById('diary-list');
+    diaryList.innerHTML = '';
+    const entries = JSON.parse(localStorage.getItem('aoyin_diary_history')) || [
+        { date: '202X-10-18 14:20', type: 'innocent', content: '今天家里来了陌生人。我不喜欢他们看她的眼神。我收起了耳朵和尾巴，他们似乎很怕我。等他们走后，我立刻抱住了她。只有在她身边，我才觉得安心。'}
+    ];
+    entries.forEach(entry => {
+        const tagClass = entry.type === 'spicy' ? 'tag-spicy' : 'tag-innocent';
+        const tagText = entry.type === 'spicy' ? '小狼的坏心思' : '纯情大狗狗';
+        diaryList.innerHTML += `
+            <div class="diary-page">
+                <div class="d-type-tag ${tagClass}">${tagText}</div>
+                <div class="d-date">${entry.date}</div>
+                <div class="d-content">${entry.content}</div>
+            </div>`;
+    });
+}
+
+async function generateDiaryEntry(type) {
+    const btnInnocent = document.querySelector('.btn-innocent');
+    const btnSpicy = document.querySelector('.btn-spicy');
+    btnInnocent.disabled = true; btnSpicy.disabled = true;
+    
+    const originalText = type === 'spicy' ? btnSpicy.innerText : btnInnocent.innerText;
+    if(type === 'spicy') btnSpicy.innerText = '正在构思...';
+    else btnInnocent.innerText = '正在构思...';
+
+    try {
+        const recentChat = chatMessages.slice(-6).map(m => `${m.role === 'bot' ? '敖尹' : '玩家'}: ${m.content}`).join('\n');
+        const recentStory = storyMessages.slice(-4).map(m => `${m.role === 'bot' ? '敖尹' : '玩家'}: ${m.content}`).join('\n');
+        
+        let diaryPrompt = `请严格按照你的角色设定，以第一人称写一篇今天的私密日记。`;
+        if (recentChat || recentStory) {
+            diaryPrompt += `\n\n【今日回忆参考】\n聊天记录：\n${recentChat}\n\n剧情记录：\n${recentStory}\n\n请结合上述回忆来写这篇日记。`;
+        }
+
+        if (type === 'spicy') {
+            diaryPrompt += `\n\n【日记风格要求：小狼的坏心思】\n展现出你极强的占有欲、野性本能和隐忍的冲动。文字要带有NSFW边缘的暧昧感，描写你对玩家身体的渴望，或者想要彻底占有对方的危险想法。`;
+        } else {
+            diaryPrompt += `\n\n【日记风格要求：纯情大狗狗】\n展现出你极度依恋、忠犬和男妈妈的一面。文字要温馨、纯情，描写你照顾玩家的日常，或者因为玩家的一个小动作而感到开心和满足。`;
+        }
+
+        const messagesForApi = [
+            { role: 'system', content: buildSystemPrompt(false) },
+            { role: 'user', content: diaryPrompt }
+        ];
+
+        const replyText = await callAPI(messagesForApi, 0.85);
+        
+        const entries = JSON.parse(localStorage.getItem('aoyin_diary_history')) || [];
+        const newEntry = {
+            date: new Date().toLocaleString('sv-SE').replace(' ', ' '),
+            type: type,
+            content: replyText.replace(/\n/g, '<br>')
+        };
+        entries.unshift(newEntry);
+        localStorage.setItem('aoyin_diary_history', JSON.stringify(entries));
+        initDiary();
+    } catch (error) {
+        alert('生成失败: ' + error.message);
+    } finally {
+        if(type === 'spicy') btnSpicy.innerText = originalText;
+        else btnInnocent.innerText = originalText;
+        btnInnocent.disabled = false; btnSpicy.disabled = false;
+    }
+}
+</script>
+
+</body>
+</html>
